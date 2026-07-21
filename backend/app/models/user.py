@@ -22,6 +22,7 @@ class User(Base):
         nullable=False,
     )
     is_active = Column(Boolean, default=True, nullable=False)
+    email_verified = Column(Boolean, default=False, nullable=False)
     bus_type = Column(String, nullable=True)
 
     # Commuter specific fields

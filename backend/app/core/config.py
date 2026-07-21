@@ -14,6 +14,15 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
 
     PAYSTACK_SECRET_KEY: str = ""
+    FRONTEND_URL: str = "http://localhost:5173"
+    SMTP_HOST: str = ""
+    SMTP_PORT: int = 587
+    SMTP_USERNAME: str = ""
+    SMTP_PASSWORD: str = ""
+    SMTP_USE_TLS: bool = True
+    # This is the mailbox address; outbound messages are always displayed as
+    # "SmartCommute <EMAIL_FROM>".
+    EMAIL_FROM: str = "no-reply@smartcommute.local"
     BACKEND_CORS_ORIGINS: str = "http://localhost:5173,http://127.0.0.1:5173"
     AUTO_CREATE_TABLES: bool = False
 

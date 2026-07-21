@@ -11,6 +11,7 @@ import History from "./pages/History";
 import Wallet from "./pages/Wallet";
 import Settings from "./pages/Settings";
 import AdminDashboard from "./pages/AdminDashboard";
+import { AlertToast } from "./components/AlertToast";
 
 type Role = "commuter" | "driver" | "admin";
 
@@ -51,10 +52,13 @@ const ProtectedRoute = ({ allowedRoles }: { allowedRoles?: Role[] }) => {
 
 export default function App() {
 	const { isAuthenticated, user } = useAuthStore();
+	const location = useLocation();
+	const accountTokenInUrl = new URLSearchParams(location.search).has("verify_token") || new URLSearchParams(location.search).has("reset_token");
 
 	return (
 		<div className="min-h-screen w-full bg-slate-50 text-slate-900 font-body relative overflow-x-hidden">
 			<RouteMetadata />
+			<AlertToast />
 			<div className="absolute inset-0 bg-[linear-gradient(to_right,#e2e8f0_1px,transparent_1px),linear-gradient(to_bottom,#e2e8f0_1px,transparent_1px)] bg-[size:5rem_5rem] [mask-image:radial-gradient(ellipse_80%_50%_at_50%_40%,#000_70%,transparent_100%)] pointer-events-none z-0" />
 
 			<div className="relative z-10">
@@ -63,7 +67,7 @@ export default function App() {
 					<Route
 						path="/auth"
 						element={
-							isAuthenticated ? <Navigate to={homeForRole(user?.role)} replace /> : <AuthPage />
+							isAuthenticated && !accountTokenInUrl ? <Navigate to={homeForRole(user?.role)} replace /> : <AuthPage />
 						}
 					/>
 

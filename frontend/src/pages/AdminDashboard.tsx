@@ -56,6 +56,7 @@ export default function AdminDashboard() {
 	const [withdrawalBalance, setWithdrawalBalance] = useState("");
 	const [balanceMessage, setBalanceMessage] = useState("");
 	const [userSearch, setUserSearch] = useState("");
+	const [busTypeMessage, setBusTypeMessage] = useState("");
 
 	const { data: summary, isLoading: summaryLoading } = useQuery({
 		queryKey: ["admin", "summary"],
@@ -108,6 +109,11 @@ export default function AdminDashboard() {
 		},
 		onError: () => setBalanceMessage("Could not update balance."),
 	});
+	const updateBusType = useMutation({
+		mutationFn: async ({ id, busType }: { id: number; busType: "shuttle" | "macopolo" }) => (await api.patch<AdminUser>(`/admin/users/${id}/bus-type`, { bus_type: busType })).data,
+		onSuccess: () => { setBusTypeMessage("Driver vehicle type updated."); queryClient.invalidateQueries({ queryKey: ["admin"] }); },
+		onError: () => setBusTypeMessage("Could not update driver vehicle type."),
+	});
 
 	const startBalanceEdit = (user: AdminUser) => {
 		setEditingUserId(user.id);
@@ -159,7 +165,7 @@ export default function AdminDashboard() {
 			<div>
 				<h1 className="text-2xl sm:text-3xl font-heading font-black text-slate-900">Admin Dashboard</h1>
 				<p className="text-sm text-slate-500 mt-1">Monitor users, driver profiles, balances, and payout requests.</p>
-				{balanceMessage && <p className="text-sm font-semibold text-slate-600 mt-2">{balanceMessage}</p>}
+				{(balanceMessage || busTypeMessage) && <p className="text-sm font-semibold text-slate-600 mt-2">{balanceMessage || busTypeMessage}</p>}
 			</div>
 
 			<div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
@@ -183,7 +189,7 @@ export default function AdminDashboard() {
 					<div className="p-5 border-b border-slate-100"><h2 className="font-black text-slate-900">Driver Profiles</h2></div>
 					<div className="divide-y divide-slate-100">
 						{usersLoading && <div className="p-4 text-sm text-slate-500">Loading drivers...</div>}
-						{drivers.map((driver) => <div key={driver.id} className="p-4 flex items-center justify-between gap-4"><div className="min-w-0"><p className="font-bold text-slate-900 truncate">{driver.full_name}</p><p className="text-xs text-slate-500 truncate">@{driver.username} • {driver.bus_type ?? "No bus type"} • {driver.qr_code_uid ?? "No QR"}</p></div><BalanceEditor user={driver} compact /></div>)}
+						{drivers.map((driver) => <div key={driver.id} className="p-4 flex items-center justify-between gap-4"><div className="min-w-0"><p className="font-bold text-slate-900 truncate">{driver.full_name}</p><p className="text-xs text-slate-500 truncate">@{driver.username} • {driver.qr_code_uid ?? "No QR"}</p><select aria-label={`Vehicle type for ${driver.full_name}`} value={driver.bus_type ?? "shuttle"} onChange={(e) => updateBusType.mutate({ id: driver.id, busType: e.target.value as "shuttle" | "macopolo" })} disabled={updateBusType.isPending} className="mt-2 rounded-lg border border-slate-200 px-2 py-1 text-xs font-bold text-slate-700 disabled:opacity-50"><option value="shuttle">Korape Shuttle</option><option value="macopolo">Macopolo Bus</option></select></div><BalanceEditor user={driver} compact /></div>)}
 						{!usersLoading && drivers.length === 0 && <div className="p-4 text-sm text-slate-500">No drivers registered.</div>}
 					</div>
 				</Card>

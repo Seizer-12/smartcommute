@@ -7,7 +7,7 @@ from app.api.deps import get_current_user, get_db
 from app.models.transaction import Transaction, TransactionStatus, TransactionType
 from app.models.user import User
 from app.schemas.transaction import TransactionResponse
-from app.schemas.user import UserResponse
+from app.schemas.user import DriverBusTypeUpdate, UserResponse
 
 router = APIRouter()
 
@@ -90,6 +90,27 @@ async def update_user_balance(
     await db.commit()
     await db.refresh(user)
     return user
+
+
+@router.patch("/users/{user_id}/bus-type", response_model=UserResponse)
+async def update_driver_bus_type(
+    user_id: int,
+    payload: DriverBusTypeUpdate,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_admin_user),
+):
+    result = await db.execute(select(User).where(User.id == user_id))
+    driver = result.scalar_one_or_none()
+    if not driver:
+        raise HTTPException(status_code=404, detail="User not found.")
+    if driver.role != "driver":
+        raise HTTPException(status_code=400, detail="Only driver vehicle types can be changed.")
+
+    driver.bus_type = payload.bus_type
+    db.add(driver)
+    await db.commit()
+    await db.refresh(driver)
+    return driver
 
 
 @router.get("/withdrawals", response_model=list[TransactionResponse])

@@ -11,6 +11,7 @@ export interface UserPayload {
 	withdrawal_balance: number;
 	is_available: boolean;
 	qr_code_uid: string | null;
+	email_verified: boolean;
 	bus_type?: string | null;
 }
 

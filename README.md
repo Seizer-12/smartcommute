@@ -44,6 +44,11 @@ npm run dev
 - `GET /health`
 - `POST /api/v1/auth/register`
 - `POST /api/v1/auth/login`
+- `POST /api/v1/auth/password/change` (authenticated)
+- `POST /api/v1/auth/password/reset/request`
+- `POST /api/v1/auth/password/reset/confirm`
+- `POST /api/v1/auth/email-verification/request` (authenticated)
+- `POST /api/v1/auth/email-verification/confirm`
 - `GET /api/v1/account/me`
 - `PATCH /api/v1/account/me`
 - `GET /api/v1/queue/status`
@@ -58,6 +63,7 @@ npm run dev
 ## Deployment Notes
 
 - Run `alembic upgrade head` before starting the backend. Runtime table creation is disabled by default; set `AUTO_CREATE_TABLES=true` only for temporary local prototypes.
+- Set `FRONTEND_URL` to the public web origin and configure the `SMTP_*` and `EMAIL_FROM` values in `backend/.env`; these deliver the one-time password-reset and email-verification links.
 - Hosted PostgreSQL URLs using `postgres://` or `postgresql://` are normalized to `postgresql+asyncpg://` automatically.
 - Driver withdrawals deduct available driver earnings immediately and create a pending transaction for admin payout review.
 

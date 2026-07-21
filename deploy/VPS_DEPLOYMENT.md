@@ -34,7 +34,8 @@ python3.12 -m venv sc_venv
 source sc_venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env
-# edit .env with real DATABASE_URL, REDIS_URL, SECRET_KEY, Paystack key, CORS origins, and AUTO_CREATE_TABLES=false
+# edit .env with real DATABASE_URL, REDIS_URL, SECRET_KEY, Paystack key, CORS origins,
+# FRONTEND_URL, SMTP_* / EMAIL_FROM, and AUTO_CREATE_TABLES=false
 alembic upgrade head
 ```
 

@@ -16,6 +16,7 @@ from app.core.database import Base
 from app.models.user import User  # Crucial: Import the User model
 from app.models.queue import TransitQueue
 from app.models.transaction import Transaction
+from app.models.account_token import AccountToken
 
 # This is the Alembic Config object, which provides access to the values within the .ini file.
 config = context.config

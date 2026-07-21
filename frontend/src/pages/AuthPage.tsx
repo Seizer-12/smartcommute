@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { User, Mail, Lock, AlertCircle, AtSign } from "lucide-react";
 import { Card } from "../components/Card";
@@ -6,17 +6,25 @@ import { RoleSwitcher } from "../components/RoleSwitcher";
 import { Input } from "../components/Input";
 import { Button } from "../components/Button";
 import { useAuthStore } from "../store/useAuthStore";
+import { useAlertStore } from "../store/useAlertStore";
 import { api } from "../lib/axios";
 
 export default function AuthPage() {
 	const navigate = useNavigate();
 	const location = useLocation();
 	const saveAuthData = useAuthStore((state) => state.authenticate);
+	const updateUser = useAuthStore((state) => state.setUser);
+	const authenticatedUser = useAuthStore((state) => state.user);
+	const showAlert = useAlertStore((state) => state.showAlert);
 
 	// Read the role passed from the landing page buttons (default to commuter)
 	const initialRole = location.state?.role || "commuter";
+	const resetToken = new URLSearchParams(location.search).get("reset_token");
+	const verifyToken = new URLSearchParams(location.search).get("verify_token");
 
-	const [authMode, setAuthMode] = useState<"login" | "register">("register");
+	const [authMode, setAuthMode] = useState<"login" | "register" | "reset">(
+		resetToken ? "reset" : "register"
+	);
 	const [selectedRole, setSelectedRole] = useState<"commuter" | "driver">(initialRole);
 
 	const [fullName, setFullName] = useState("");
@@ -24,8 +32,31 @@ export default function AuthPage() {
 	const [email, setEmail] = useState("");
 	const [password, setPassword] = useState("");
 	const [busType, setBusType] = useState("shuttle"); // Defaults to shuttle
-	const [errorMessage, setErrorMessage] = useState("");
+	const [errorMessage, setErrorMessage] = useState<string>(location.state?.notice || "");
 	const [isLoading, setIsLoading] = useState(false);
+	const processedVerificationToken = useRef<string | null>(null);
+
+	useEffect(() => {
+		if (!verifyToken || processedVerificationToken.current === verifyToken) return;
+		// React Strict Mode runs effects twice in development. Mark the link before
+		// requesting verification so its one-time token is never submitted twice.
+		processedVerificationToken.current = verifyToken;
+		api.post("/auth/email-verification/confirm", { token: verifyToken })
+			.then(({ data }) => {
+				showAlert(data.message, "success");
+				if (authenticatedUser) {
+					updateUser({ ...authenticatedUser, email_verified: true });
+					navigate("/dashboard/settings", { replace: true, state: { notice: data.message } });
+					return;
+				}
+				navigate("/auth", { replace: true, state: { notice: data.message } });
+			})
+			.catch((error) => {
+				const message = getErrorMessage(error);
+				showAlert(message, "error");
+				navigate("/auth", { replace: true, state: { notice: message } });
+			});
+	}, [verifyToken, navigate, authenticatedUser, updateUser, showAlert]);
 
 	// Clear errors when switching modes
 	//useEffect(() => {
@@ -51,13 +82,13 @@ export default function AuthPage() {
 		setErrorMessage("");
 		setIsLoading(true);
 
-		const targetUrl = authMode === "login" ? "/auth/login" : "/auth/register";
+		const targetUrl = authMode === "login" ? "/auth/login" : authMode === "register" ? "/auth/register" : resetToken ? "/auth/password/reset/confirm" : "/auth/password/reset/request";
 
 		// The backend expects full_name and role for registration, but only email/password for login
 		const requestPayload: Record<string, string> =
 			authMode === "login"
 				? { email, password }
-				: { email, password, username: username, full_name: fullName, role: selectedRole };
+				: authMode === "register" ? { email, password, username: username, full_name: fullName, role: selectedRole } : resetToken ? { token: resetToken, new_password: password } : { email };
 
 		// Register drivers with their vehicle type so fares can be calculated.
 		if (authMode === "register" && selectedRole === "driver") {
@@ -69,26 +100,52 @@ export default function AuthPage() {
 
 			if (authMode === "login") {
 				const fetchedUser = response.data.user;
+				// Keep the client closed even if it is accidentally pointed at an
+				// older API deployment that has not yet applied the server-side gate.
+				if (!fetchedUser.email_verified) {
+					const message = "Verify your email before signing in. A verification link has been sent.";
+					setErrorMessage(message);
+					showAlert(message, "info");
+					return;
+				}
 
 				if (fetchedUser.role !== "admin" && fetchedUser.role !== selectedRole) {
-					setErrorMessage(
-						"Account mismatch: this account role does not match the selected login tab."
-					);
+					const message = "Account mismatch: this account role does not match the selected login tab.";
+					setErrorMessage(message);
+					showAlert(message, "error");
 					setIsLoading(false);
 					return;
 				}
 
 				saveAuthData(fetchedUser, response.data.access_token);
+				showAlert("Signed in successfully.", "success");
 
 				// Smart navigation so drivers actually go to /driver
 				navigate(fetchedUser.role === "admin" ? "/admin" : fetchedUser.role === "driver" ? "/driver" : "/dashboard");
-			} else {
+			} else if (authMode === "register") {
 				// Registration success triggers toggle fallback to login sequence
 				setAuthMode("login");
-				setErrorMessage("Account created successfully! Please sign in.");
+				const message = response.data.email_verification_sent
+					? "Account created. A verification link was sent to your email."
+					: "Account created, but the verification email could not be sent. Please contact support.";
+				setErrorMessage(message);
+				showAlert(message, response.data.email_verification_sent ? "success" : "error");
+			} else {
+				if (resetToken) {
+					showAlert(response.data.message, "success");
+					navigate("/auth", { replace: true, state: { notice: response.data.message } });
+				} else {
+					setErrorMessage(response.data.message);
+					showAlert(response.data.message, "info");
+				}
 			}
 		} catch (err: unknown) {
-			setErrorMessage(getErrorMessage(err));
+			const message = getErrorMessage(err);
+			setErrorMessage(message);
+			showAlert(
+				message,
+				message.includes("verification link has been sent") ? "info" : "error"
+			);
 		} finally {
 			setIsLoading(false);
 		}
@@ -108,10 +165,10 @@ export default function AuthPage() {
 
 				<div className="mb-8 text-center">
 					<h2 className="text-2xl font-heading font-black tracking-tight text-slate-900">
-						{authMode === "login" ? "Welcome Back" : "Create an Account"}
+						{authMode === "login" ? "Welcome Back" : authMode === "register" ? "Create an Account" : resetToken ? "Set New Password" : "Reset Password"}
 					</h2>
 					<p className="text-sm text-slate-500 mt-2">
-						{authMode === "login"
+						{authMode === "reset" ? (resetToken ? "Choose a new password for your account." : "Enter your account email and we will send a secure reset link.") : authMode === "login"
 							? "Sign in to access your "
 							: "Register to set up your "}
 						<span
@@ -171,7 +228,7 @@ export default function AuthPage() {
 						</>
 					)}
 
-					<Input
+					{(!resetToken || authMode !== "reset") && <Input
 						label="University Email"
 						type="email"
 						placeholder="student@unilorin.edu.ng"
@@ -179,9 +236,9 @@ export default function AuthPage() {
 						onChange={(e) => setEmail(e.target.value)}
 						icon={<Mail className="w-4 h-4" />}
 						required
-					/>
+					/>}
 
-					<Input
+					{authMode !== "reset" || resetToken ? <Input
 						label="Password"
 						type="password"
 						placeholder="••••••••"
@@ -191,7 +248,7 @@ export default function AuthPage() {
 						required
 						minLength={8}
 						maxLength={64}
-					/>
+					/> : null}
 
 					{authMode === "register" && selectedRole === "driver" && (
 						<div className="animate-in fade-in slide-in-from-top-2 duration-300">
@@ -216,20 +273,21 @@ export default function AuthPage() {
 						isLoading={isLoading}
 						className="mt-8"
 					>
-						{authMode === "login" ? "Sign In" : "Register Account"}
+						{authMode === "login" ? "Sign In" : authMode === "register" ? "Register Account" : resetToken ? "Reset Password" : "Send Reset Link"}
 					</Button>
 				</form>
 
 				<div className="mt-8 text-center pt-6 border-t border-slate-100">
 					<p className="text-sm text-slate-500">
+						{authMode === "login" && <button type="button" onClick={() => { setAuthMode("reset"); setErrorMessage(""); }} className="mr-3 font-bold text-blue-600 hover:text-blue-800">Forgot password?</button>}
 						{authMode === "login"
 							? "Don't have an account? "
 							: "Already have an account? "}
 						<button
 							type="button"
-							onClick={() => {
-								setErrorMessage("");
-								setAuthMode(authMode === "login" ? "register" : "login");
+								onClick={() => {
+									setErrorMessage("");
+									setAuthMode(authMode === "login" ? "register" : "login");
 							}}
 							className={`font-bold transition-colors cursor-pointer ${
 								selectedRole === "commuter"
