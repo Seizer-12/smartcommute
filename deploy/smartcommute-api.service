@@ -1,0 +1,15 @@
+[Unit]
+Description=SmartCommute FastAPI backend
+After=network.target postgresql.service redis-server.service
+
+[Service]
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/smartcommute/backend
+EnvironmentFile=/var/www/smartcommute/backend/.env
+ExecStart=/var/www/smartcommute/backend/sc_venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
