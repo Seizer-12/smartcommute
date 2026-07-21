@@ -19,4 +19,5 @@ class TransitQueue(Base):
     role = Column(Enum(QueueRole), nullable=False)
     status = Column(Enum(QueueStatus), default=QueueStatus.waiting, index=True)
     joined_at = Column(DateTime(timezone=True), server_default=func.now())
+    last_seen_at = Column(DateTime(timezone=True), nullable=True, index=True)
     cleared_at = Column(DateTime(timezone=True), nullable=True)

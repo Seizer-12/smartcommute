@@ -1,55 +1,56 @@
-import { useEffect, useState } from "react";
-import { api } from "../lib/axios"; // Make sure this points to your axios instance!
+import { useEffect, useRef, useState } from "react";
+import { api } from "../lib/axios";
 
-// UNILORIN Terminus Coordinates (Replace with exact coordinates later)
-const PARK_LAT = 8.4845;
-const PARK_LNG = 4.675;
-const GEOFENCE_RADIUS_METERS = 50;
-
-// Haversine formula to calculate distance in meters
-function getDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
-	const R = 6371e3;
-	const φ1 = (lat1 * Math.PI) / 180,
-		φ2 = (lat2 * Math.PI) / 180;
-	const Δφ = ((lat2 - lat1) * Math.PI) / 180,
-		Δλ = ((lon2 - lon1) * Math.PI) / 180;
-	const a =
-		Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-		Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
-	return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
+type HeartbeatResponse = {
+	in_geofence: boolean;
+};
 
 export function useGeofencedQueue() {
 	const [isInPark, setIsInPark] = useState(false);
+	const [locationError, setLocationError] = useState(() => {
+		if (typeof navigator === "undefined") return "";
+		return "geolocation" in navigator ? "" : "Geolocation is not available in this browser.";
+	});
+	const latestPosition = useRef<GeolocationPosition | null>(null);
 
 	useEffect(() => {
 		let watchId: number | undefined;
 		let heartbeatInterval: ReturnType<typeof setInterval> | undefined;
 
+		if (!("geolocation" in navigator)) return;
+
+		const sendHeartbeat = (position: GeolocationPosition) => {
+			api
+				.post<HeartbeatResponse>("/queue/heartbeat", {
+					latitude: position.coords.latitude,
+					longitude: position.coords.longitude,
+					accuracy_meters: position.coords.accuracy,
+				})
+				.then(({ data }) => {
+					setIsInPark(data.in_geofence);
+					setLocationError("");
+				})
+				.catch(() => {
+					setIsInPark(false);
+					setLocationError("We could not confirm your location with SmartCommute.");
+				});
+		};
+
 		if ("geolocation" in navigator) {
 			watchId = navigator.geolocation.watchPosition(
 				(position) => {
-					const distance = getDistance(
-						position.coords.latitude,
-						position.coords.longitude,
-						PARK_LAT,
-						PARK_LNG
-					);
-
-					const currentlyInPark = distance <= GEOFENCE_RADIUS_METERS;
-					setIsInPark(currentlyInPark);
-
-					if (currentlyInPark && !heartbeatInterval) {
-						// First ping immediately, then every 30 seconds
-						api.post("/queue/heartbeat").catch(console.error);
-						heartbeatInterval = setInterval(() => api.post("/queue/heartbeat").catch(console.error), 30000);
-					} else if (!currentlyInPark && heartbeatInterval) {
-						// They walked away, stop pinging and tell server they left
-						clearInterval(heartbeatInterval);
-						api.post("/queue/leave").catch(console.error);
+					latestPosition.current = position;
+					sendHeartbeat(position);
+					if (!heartbeatInterval) {
+						heartbeatInterval = setInterval(() => {
+							if (latestPosition.current) sendHeartbeat(latestPosition.current);
+						}, 30000);
 					}
 				},
-				(error) => console.error("Location error:", error),
+				() => {
+					setIsInPark(false);
+					setLocationError("Allow location access to use terminus queue features.");
+				},
 				{ enableHighAccuracy: true, maximumAge: 10000, timeout: 5000 }
 			);
 		}
@@ -60,5 +61,5 @@ export function useGeofencedQueue() {
 		};
 	}, []);
 
-	return { isInPark };
+	return { isInPark, locationError };
 }

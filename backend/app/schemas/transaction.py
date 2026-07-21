@@ -23,6 +23,14 @@ class TransactionResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class PaginatedTransactionsResponse(BaseModel):
+    items: list[TransactionResponse]
+    page: int
+    page_size: int
+    total: int
+    total_pages: int
+
+
 class WithdrawalRequest(BaseModel):
     amount: float = Field(gt=0)
     bank_name: str = Field(min_length=2, max_length=100)

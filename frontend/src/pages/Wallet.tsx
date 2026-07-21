@@ -13,11 +13,14 @@ const getApiErrorMessage = (error: unknown, fallback: string) => {
 	return detail || fallback;
 };
 
+const MINIMUM_FUNDING_AMOUNT = 100;
+const MINIMUM_WITHDRAWAL_AMOUNT = 1000;
+
 export default function Wallet() {
 	const { user, setUser } = useAuthStore();
 	const queryClient = useQueryClient();
 	const isDriver = user?.role === "driver";
-	const [amount, setAmount] = useState(1000);
+	const [fundingAmount, setFundingAmount] = useState("1000");
 	const [withdrawAmount, setWithdrawAmount] = useState("");
 	const [bankName, setBankName] = useState("");
 	const [accountNumber, setAccountNumber] = useState("");
@@ -25,6 +28,8 @@ export default function Wallet() {
 	const [message, setMessage] = useState("");
 	const [isBusy, setIsBusy] = useState(false);
 	const [paymentReference, setPaymentReference] = useState(() => `SC_${Date.now()}`);
+	const amount = Number(fundingAmount);
+	const isFundingAmountValid = Number.isFinite(amount) && amount >= MINIMUM_FUNDING_AMOUNT;
 
 	const initializePayment = usePaystackPayment({
 		reference: paymentReference,
@@ -56,8 +61,8 @@ export default function Wallet() {
 		const cleanAccountNumber = accountNumber.trim();
 		const cleanAccountName = accountName.trim();
 
-		if (!requestedAmount || requestedAmount <= 0) {
-			setMessage("Enter a withdrawal amount greater than zero.");
+		if (!requestedAmount || requestedAmount < MINIMUM_WITHDRAWAL_AMOUNT) {
+			setMessage("The minimum withdrawal amount is ₦1,000.");
 			return;
 		}
 		if (!cleanBankName || !cleanAccountName || !/^\d{10}$/.test(cleanAccountNumber)) {
@@ -108,17 +113,29 @@ export default function Wallet() {
 					{message && <p className="mb-4 text-sm font-bold text-white/90">{message}</p>}
 
 					{!isDriver && (
-						<div className="flex flex-col sm:flex-row gap-3">
-							<input type="number" min="100" value={amount} onChange={(e) => setAmount(Number(e.target.value))} className="px-4 py-3 rounded-xl text-slate-900 font-bold bg-white border border-white/40 outline-none" />
-							<button disabled={isBusy || !import.meta.env.VITE_PAYSTACK_PUBLIC_KEY} onClick={() => initializePayment({ onSuccess: verifyPayment, onClose: () => {} })} className="bg-white text-blue-600 px-6 py-3 rounded-xl text-sm font-bold hover:bg-slate-50 transition-colors shadow-sm flex items-center justify-center gap-2 disabled:opacity-60">
+						<div className="space-y-3">
+							<div className="flex flex-col sm:flex-row gap-3">
+								<div className="flex-1">
+									<label htmlFor="funding-amount" className="mb-1 block text-xs font-bold uppercase tracking-wide text-white/80">Amount to fund</label>
+									<div className="flex overflow-hidden rounded-xl border border-white/40 bg-white shadow-sm focus-within:ring-2 focus-within:ring-white/70">
+										<span className="flex items-center px-4 font-bold text-slate-500">₦</span>
+										<input id="funding-amount" type="number" inputMode="numeric" min={MINIMUM_FUNDING_AMOUNT} step="100" value={fundingAmount} onChange={(e) => setFundingAmount(e.target.value)} aria-describedby="funding-amount-help" className="min-w-0 flex-1 py-3 pr-4 text-slate-900 font-bold outline-none" />
+									</div>
+								</div>
+								<button disabled={isBusy || !isFundingAmountValid || !import.meta.env.VITE_PAYSTACK_PUBLIC_KEY} onClick={() => initializePayment({ onSuccess: verifyPayment, onClose: () => {} })} className="self-end bg-white text-blue-600 px-6 py-3 rounded-xl text-sm font-bold hover:bg-slate-50 transition-colors shadow-sm flex items-center justify-center gap-2 disabled:opacity-60">
 								{isBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <CreditCard className="w-4 h-4" />} Fund via Paystack
-							</button>
+								</button>
+							</div>
+							<div className="flex flex-wrap items-center gap-2 text-xs font-semibold text-white/85">
+								<span id="funding-amount-help">Minimum ₦100</span>
+								{[500, 1000, 2000, 5000].map((preset) => <button key={preset} type="button" onClick={() => setFundingAmount(String(preset))} className="rounded-full border border-white/40 px-3 py-1 hover:bg-white/15 transition-colors">₦{preset.toLocaleString()}</button>)}
+							</div>
 						</div>
 					)}
 
 					{isDriver && (
 						<div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-							<input placeholder="Amount" type="number" min="1" value={withdrawAmount} onChange={(e) => setWithdrawAmount(e.target.value)} className="px-4 py-3 rounded-xl text-slate-900 font-bold bg-white border border-white/40 outline-none" />
+							<input aria-label="Withdrawal amount" placeholder="Amount (minimum ₦1,000)" type="number" min={MINIMUM_WITHDRAWAL_AMOUNT} step="100" value={withdrawAmount} onChange={(e) => setWithdrawAmount(e.target.value)} className="px-4 py-3 rounded-xl text-slate-900 font-bold bg-white border border-white/40 outline-none" />
 							<input placeholder="Bank name" value={bankName} onChange={(e) => setBankName(e.target.value)} className="px-4 py-3 rounded-xl text-slate-900 font-bold bg-white border border-white/40 outline-none" />
 							<input placeholder="Account number" inputMode="numeric" maxLength={10} value={accountNumber} onChange={(e) => setAccountNumber(e.target.value.replace(/\D/g, "").slice(0, 10))} className="px-4 py-3 rounded-xl text-slate-900 font-bold bg-white border border-white/40 outline-none" />
 							<input placeholder="Account name" value={accountName} onChange={(e) => setAccountName(e.target.value)} className="px-4 py-3 rounded-xl text-slate-900 font-bold bg-white border border-white/40 outline-none" />

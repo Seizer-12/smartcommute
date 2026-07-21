@@ -1,22 +1,29 @@
-from contextlib import asynccontextmanager
+import asyncio
+from contextlib import asynccontextmanager, suppress
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api import account, admin, auth, queue, wallet
 from app.core.config import settings
-from app.core.database import Base, engine
-from app.models.queue import TransitQueue  # noqa: F401
-from app.models.transaction import Transaction  # noqa: F401
-from app.models.user import User  # noqa: F401
+from app.core.database import AsyncSessionLocal
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
-    if settings.AUTO_CREATE_TABLES:
-        async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
-    yield
+async def lifespan(_: FastAPI):
+    async def cleanup_stale_queue_entries() -> None:
+        while True:
+            async with AsyncSessionLocal() as db:
+                await queue.clear_stale_waiting_entries(db)
+            await asyncio.sleep(queue.PARK_PRESENCE_TTL_SECONDS)
+
+    cleanup_task = asyncio.create_task(cleanup_stale_queue_entries())
+    try:
+        yield
+    finally:
+        cleanup_task.cancel()
+        with suppress(asyncio.CancelledError):
+            await cleanup_task
 
 
 app = FastAPI(title=settings.PROJECT_NAME, version=settings.VERSION, lifespan=lifespan)

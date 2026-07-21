@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useAuthStore } from "../store/useAuthStore";
 import { Card } from "../components/Card";
 import { Button } from "../components/Button";
@@ -33,10 +33,32 @@ const getApiErrorMessage = (error: unknown, fallback: string) => {
 // --- CAMERA SCANNER COMPONENT ---
 function CameraScanner({ onScanSuccess }: { onScanSuccess: (text: string) => void }) {
 	const [cameraError, setCameraError] = useState<string | null>(null);
+	const scanHandledRef = useRef(false);
+	const onScanSuccessRef = useRef(onScanSuccess);
+
+	useEffect(() => {
+		onScanSuccessRef.current = onScanSuccess;
+	}, [onScanSuccess]);
 
 	useEffect(() => {
 		const scannerId = "physical-camera-stream";
 		const html5QrcodeScanner = new Html5Qrcode(scannerId);
+
+		const stopScanner = async () => {
+			try {
+				if (html5QrcodeScanner.isScanning) {
+					await html5QrcodeScanner.stop();
+				}
+			} catch (error) {
+				console.error(error);
+			}
+
+			try {
+				await html5QrcodeScanner.clear();
+			} catch (error) {
+				console.error(error);
+			}
+		};
 
 		const startCamera = async () => {
 			try {
@@ -50,6 +72,8 @@ function CameraScanner({ onScanSuccess }: { onScanSuccess: (text: string) => voi
 						},
 					},
 					(decodedText) => {
+						if (scanHandledRef.current) return;
+
 						// Driver payment QR codes must use the @username format.
 						const isValidDriverTag =
 							decodedText.startsWith("@") && !decodedText.includes(" ");
@@ -59,7 +83,10 @@ function CameraScanner({ onScanSuccess }: { onScanSuccess: (text: string) => voi
 							return;
 						}
 
-						onScanSuccess(decodedText);
+						scanHandledRef.current = true;
+						void stopScanner().finally(() => {
+							onScanSuccessRef.current(decodedText);
+						});
 					},
 					() => {} // Ignore scan failures (empty frames)
 				);
@@ -73,14 +100,10 @@ function CameraScanner({ onScanSuccess }: { onScanSuccess: (text: string) => voi
 
 		// Cleanup camera when component unmounts
 		return () => {
-			if (html5QrcodeScanner.isScanning) {
-				html5QrcodeScanner
-					.stop()
-					.then(() => html5QrcodeScanner.clear())
-					.catch(console.error);
-			}
+			scanHandledRef.current = true;
+			void stopScanner();
 		};
-	}, [onScanSuccess]);
+	}, []);
 
 	return (
 		<div className="space-y-4 mt-4">
@@ -130,6 +153,7 @@ export default function CommuterDashboard() {
 	const [paymentMode, setPaymentMode] = useState<"scan" | "manual">("scan");
 	const [driverUsernameInput, setDriverUsernameInput] = useState("");
 	const [isPaying, setIsPaying] = useState(false);
+	const isPayingRef = useRef(false);
 	const fareAmountLabel = "₦150/₦250";
 
 	const parkStatus = queueStatus;
@@ -189,9 +213,11 @@ export default function CommuterDashboard() {
 	// Process the final payment to the driver
 	const processFarePayment = async (targetUsername: string) => {
 		if (!targetUsername) return alert("Please provide a valid driver username.");
+		if (isPayingRef.current) return;
 		const cleanUsername = targetUsername.replace("@", "").trim();
 
 		setIsPaymentModalOpen(false);
+		isPayingRef.current = true;
 		setIsPaying(true);
 
 		try {
@@ -211,6 +237,7 @@ export default function CommuterDashboard() {
 			alert(`Payment Failed: ${getApiErrorMessage(error, "Could not process transaction")}`);
 		} finally {
 			setIsPaying(false);
+			isPayingRef.current = false;
 		}
 	};
 
@@ -277,12 +304,13 @@ export default function CommuterDashboard() {
 										/>
 									</div>
 								</div>
-								<Button
-									onClick={() => processFarePayment(driverUsernameInput)}
-									className="w-full py-3"
-								>
-									Pay Fare Now
-								</Button>
+							<Button
+								onClick={() => processFarePayment(driverUsernameInput)}
+								disabled={isPaying}
+								className="w-full py-3"
+							>
+								Pay Fare Now
+							</Button>
 							</div>
 						)}
 					</Card>

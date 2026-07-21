@@ -13,7 +13,7 @@ const getApiErrorMessage = (error: unknown, fallback: string) => {
 export default function Settings() {
 	const { user, setUser } = useAuthStore();
 	const [fullName, setFullName] = useState(user?.full_name || "");
-	const [busType, setBusType] = useState(user?.role === "driver" ? "shuttle" : "");
+	const busType = user?.bus_type || "";
 	const [message, setMessage] = useState("");
 	const [isSaving, setIsSaving] = useState(false);
 
@@ -23,7 +23,6 @@ export default function Settings() {
 		try {
 			const response = await api.patch("/account/me", {
 				full_name: fullName,
-				...(user?.role === "driver" ? { bus_type: busType } : {}),
 			});
 			setUser(response.data);
 			setMessage("Profile updated.");
@@ -76,10 +75,11 @@ export default function Settings() {
 					{user?.role === "driver" && (
 						<div>
 							<label className="text-xs font-bold text-slate-700 uppercase ml-1">Vehicle Type</label>
-							<select value={busType} onChange={(e) => setBusType(e.target.value)} className="block w-full px-4 py-3 mt-1 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all font-medium text-slate-900">
+							<select value={busType} disabled aria-describedby="vehicle-type-help" className="block w-full px-4 py-3 mt-1 bg-slate-100 border border-slate-200 rounded-xl font-medium text-slate-500 cursor-not-allowed">
 								<option value="shuttle">Korape Shuttle</option>
 								<option value="macopolo">Macopolo Bus</option>
 							</select>
+							<p id="vehicle-type-help" className="mt-1 text-xs text-slate-500">Vehicle type is set during registration and cannot be changed.</p>
 						</div>
 					)}
 					{message && <p className="text-sm font-semibold text-slate-600">{message}</p>}

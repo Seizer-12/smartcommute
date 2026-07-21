@@ -21,8 +21,7 @@ export default function DashboardLayout() {
 			return response.data;
 		},
 		enabled: isDriver,
-		refetchInterval: 1000,
-		refetchIntervalInBackground: true,
+		refetchInterval: 30000,
 	});
 
 	useEffect(() => {

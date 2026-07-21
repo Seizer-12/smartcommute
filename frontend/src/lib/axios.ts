@@ -1,7 +1,9 @@
 import axios from "axios";
 import { useAuthStore } from "../store/useAuthStore";
 
-const fallbackApiUrl = `${window.location.protocol}//${window.location.hostname}:8000/api/v1`;
+// Nginx proxies this same-origin path to FastAPI in production. A relative
+// fallback prevents browsers from trying to reach the server's private :8000 port.
+const fallbackApiUrl = "/api/v1";
 const configuredApiUrl = import.meta.env.VITE_API_URL?.trim();
 
 export const api = axios.create({

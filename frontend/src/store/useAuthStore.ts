@@ -9,6 +9,7 @@ export interface UserPayload {
 	role: "commuter" | "driver" | "admin";
 	wallet_balance: number;
 	withdrawal_balance: number;
+	is_available: boolean;
 	qr_code_uid: string | null;
 	bus_type?: string | null;
 }

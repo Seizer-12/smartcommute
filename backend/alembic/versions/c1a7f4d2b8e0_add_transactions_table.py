@@ -27,9 +27,6 @@ def upgrade() -> None:
     )
     transaction_status = sa.Enum("pending", "success", "failed", name="transactionstatus")
 
-    transaction_type.create(op.get_bind(), checkfirst=True)
-    transaction_status.create(op.get_bind(), checkfirst=True)
-
     op.create_table(
         "transactions",
         sa.Column("id", sa.Integer(), nullable=False),

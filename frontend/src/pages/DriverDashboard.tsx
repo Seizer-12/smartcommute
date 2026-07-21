@@ -1,15 +1,19 @@
 import { useEffect, useRef, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { api } from "../lib/axios";
 import { useAuthStore } from "../store/useAuthStore";
+import { useGeofencedQueue } from "../hooks/useGeofencedQueue";
 import { Card } from "../components/Card";
 import { Button } from "../components/Button";
-import { Wallet, QrCode, X, Users, MapPin, Activity, BellRing } from "lucide-react";
+import { Wallet, QrCode, X, Users, MapPin, Activity, BellRing, Bus } from "lucide-react";
 import QRCode from "react-qr-code";
 
 export default function DriverDashboard() {
 	const hasNotified = useRef(false);
+	const { user, setUser } = useAuthStore();
+	const { isInPark, locationError } = useGeofencedQueue();
+	const queryClient = useQueryClient();
 
 	// Poll the park status every 30 seconds
 	const { data: queueStatus, isLoading } = useQuery({
@@ -49,8 +53,26 @@ export default function DriverDashboard() {
 		}
 	}, [queueStatus]);
 
-	const { user } = useAuthStore();
 	const [showReceiveModal, setShowReceiveModal] = useState(false);
+	const [dispatchMessage, setDispatchMessage] = useState("");
+	const setAvailability = useMutation({
+		mutationFn: async (available: boolean) =>
+			(await api.post<{ available: boolean }>("/queue/availability", { available })).data,
+		onSuccess: (data) => {
+			if (user) setUser({ ...user, is_available: data.available });
+			queryClient.invalidateQueries({ queryKey: ["driverParkStatus"] });
+		},
+	});
+	const dispatchQueue = useMutation({
+		mutationFn: async () => (await api.post<{ message: string; boarded_commuters: number }>("/queue/dispatch")).data,
+		onSuccess: (data) => {
+			setDispatchMessage(data.message);
+			queryClient.invalidateQueries({ queryKey: ["driverParkStatus"] });
+		},
+		onError: (error: { response?: { data?: { detail?: string } } }) => {
+			setDispatchMessage(error.response?.data?.detail || "Could not dispatch commuters.");
+		},
+	});
 
 	return (
 		<div className="space-y-6 animate-in fade-in duration-500">
@@ -107,14 +129,35 @@ export default function DriverDashboard() {
 					</h1>
 					<p className="text-sm text-slate-500 mt-1">Logged in as {user?.full_name}</p>
 				</div>
-				<Button
-					onClick={() => setShowReceiveModal(true)}
-					className="sm:w-auto px-6 bg-emerald-600 hover:bg-emerald-700 shadow-md shadow-emerald-600/20"
-				>
-					<QrCode className="w-4 h-4" />
-					<span>Receive Payment</span>
-				</Button>
-			</div>
+				<div className="flex flex-wrap gap-3">
+					<Button
+						onClick={() => setAvailability.mutate(!user?.is_available)}
+						disabled={setAvailability.isPending || (!isInPark && !user?.is_available)}
+						className={`sm:w-auto px-6 ${user?.is_available ? "bg-slate-700 hover:bg-slate-800" : "bg-emerald-600 hover:bg-emerald-700"}`}
+					>
+						<MapPin className="w-4 h-4" />
+						<span>{user?.is_available ? "Stop availability" : "Available at terminus"}</span>
+					</Button>
+					<Button
+						onClick={() => setShowReceiveModal(true)}
+						className="sm:w-auto px-6 bg-emerald-600 hover:bg-emerald-700 shadow-md shadow-emerald-600/20"
+						>
+							<QrCode className="w-4 h-4" />
+							<span>Receive Payment</span>
+						</Button>
+						<Button
+							onClick={() => dispatchQueue.mutate()}
+							disabled={dispatchQueue.isPending || !user?.is_available || !isInPark}
+							className="sm:w-auto px-6 bg-blue-600 hover:bg-blue-700"
+						>
+							<Bus className="w-4 h-4" />
+							<span>{dispatchQueue.isPending ? "Dispatching..." : "Dispatch Next Riders"}</span>
+						</Button>
+					</div>
+				</div>
+				{locationError && <p className="-mt-4 text-sm font-semibold text-amber-700">{locationError}</p>}
+				{!locationError && !isInPark && <p className="-mt-4 text-sm text-slate-500">Share your current location at the terminus to become available for dispatch.</p>}
+				{dispatchMessage && <p className="-mt-4 text-sm font-semibold text-slate-600">{dispatchMessage}</p>}
 
 			{/* Stats Grid */}
 			<div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -163,7 +206,7 @@ export default function DriverDashboard() {
 									</h3>
 									<p className="text-sm text-slate-500 mt-0.5">
 										{queueStatus?.congestion_level === "High"
-											? "Surge at the terminus! Head over now."
+											? `${queueStatus.buses_short ?? 0} more bus(es) needed at the terminus.`
 											: "Normal commuter flow at the moment."}
 									</p>
 								</div>
@@ -201,7 +244,7 @@ export default function DriverDashboard() {
 								Current Location
 							</p>
 							<p className="text-2xl font-heading font-black text-slate-900">
-								Terminus Park
+								{isInPark ? "At Terminus" : "Away from terminus"}
 							</p>
 						</Card>
 						<Card className="p-5 flex flex-col justify-center border-slate-200">
@@ -211,9 +254,9 @@ export default function DriverDashboard() {
 								</div>
 							</div>
 							<p className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-								Today's Passengers
+								Available Buses
 							</p>
-							<p className="text-2xl font-heading font-black text-slate-900">0</p>
+							<p className="text-2xl font-heading font-black text-slate-900">{queueStatus?.available_buses ?? 0}</p>
 						</Card>
 					</div>
 				</div>

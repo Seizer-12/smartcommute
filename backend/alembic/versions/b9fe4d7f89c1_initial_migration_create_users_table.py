@@ -22,10 +22,6 @@ def upgrade() -> None:
     queue_role = sa.Enum("commuter", "driver", name="queuerole")
     queue_status = sa.Enum("waiting", "cleared", name="queuestatus")
 
-    user_role.create(op.get_bind(), checkfirst=True)
-    queue_role.create(op.get_bind(), checkfirst=True)
-    queue_status.create(op.get_bind(), checkfirst=True)
-
     op.create_table(
         "users",
         sa.Column("id", sa.Integer(), nullable=False),

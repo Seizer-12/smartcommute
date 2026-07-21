@@ -1,4 +1,5 @@
-import { Routes, Route, Navigate, Outlet } from "react-router-dom";
+import { useEffect } from "react";
+import { Routes, Route, Navigate, Outlet, useLocation } from "react-router-dom";
 import { useAuthStore } from "./store/useAuthStore";
 
 import DashboardLayout from "./components/DashboardLayout";
@@ -14,6 +15,28 @@ import AdminDashboard from "./pages/AdminDashboard";
 type Role = "commuter" | "driver" | "admin";
 
 const homeForRole = (role?: Role) => role === "admin" ? "/admin" : role === "driver" ? "/driver" : "/dashboard";
+
+const pageMetadata = (pathname: string) => {
+	if (pathname === "/driver") return "Driver Portal";
+	if (pathname === "/admin") return "Admin Dashboard";
+	if (pathname === "/dashboard/history") return "Transaction History";
+	if (pathname === "/dashboard/wallet") return "Wallet Management";
+	if (pathname === "/dashboard/settings") return "Account Settings";
+	if (pathname === "/dashboard") return "Commuter Dashboard";
+	if (pathname === "/auth") return "Sign in";
+	return "SmartCommute";
+};
+
+const RouteMetadata = () => {
+	const { pathname } = useLocation();
+
+	useEffect(() => {
+		const title = pageMetadata(pathname);
+		document.title = `${title} | SmartCommute`;
+	}, [pathname]);
+
+	return null;
+};
 
 const ProtectedRoute = ({ allowedRoles }: { allowedRoles?: Role[] }) => {
 	const { isAuthenticated, user } = useAuthStore();
@@ -31,6 +54,7 @@ export default function App() {
 
 	return (
 		<div className="min-h-screen w-full bg-slate-50 text-slate-900 font-body relative overflow-x-hidden">
+			<RouteMetadata />
 			<div className="absolute inset-0 bg-[linear-gradient(to_right,#e2e8f0_1px,transparent_1px),linear-gradient(to_bottom,#e2e8f0_1px,transparent_1px)] bg-[size:5rem_5rem] [mask-image:radial-gradient(ellipse_80%_50%_at_50%_40%,#000_70%,transparent_100%)] pointer-events-none z-0" />
 
 			<div className="relative z-10">

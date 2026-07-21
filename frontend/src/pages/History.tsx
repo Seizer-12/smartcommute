@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
 import { Card } from "../components/Card";
 import { Bus, ArrowDownLeft, Calendar, WalletCards, ArrowUpRight } from "lucide-react";
 import { api } from "../lib/axios";
@@ -15,6 +16,16 @@ type Transaction = {
 	created_at: string;
 };
 
+type PaginatedTransactions = {
+	items: Transaction[];
+	page: number;
+	page_size: number;
+	total: number;
+	total_pages: number;
+};
+
+const PAGE_SIZE = 10;
+
 const icons = {
 	wallet_funding: ArrowDownLeft,
 	fare_payment: Bus,
@@ -27,14 +38,23 @@ const amountPrefix = (type: Transaction["type"]) =>
 
 export default function History() {
 	const { user } = useAuthStore();
-	const { data: transactions = [], isLoading, isError } = useQuery({
-		queryKey: ["transactions", user?.id],
+	const [page, setPage] = useState(1);
+	const { data, isLoading, isError } = useQuery({
+		queryKey: ["transactions", user?.id, page],
 		queryFn: async () => {
-			const response = await api.get<Transaction[]>("/wallet/transactions");
+			const response = await api.get<PaginatedTransactions>("/wallet/transactions", {
+				params: { page, page_size: PAGE_SIZE },
+			});
 			return response.data;
 		},
 		enabled: Boolean(user?.id),
 	});
+	const transactions = data?.items ?? [];
+	const totalPages = data?.total_pages ?? 0;
+
+	useEffect(() => {
+		setPage(1);
+	}, [user?.id]);
 
 	return (
 		<div className="space-y-6 animate-in fade-in duration-500">
@@ -78,6 +98,18 @@ export default function History() {
 						);
 					})}
 				</div>
+				{!isLoading && !isError && data && data.total > 0 && (
+					<div className="flex flex-col gap-3 border-t border-slate-100 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+						<p className="text-sm font-medium text-slate-500">
+							Showing {(page - 1) * PAGE_SIZE + 1}-{Math.min(page * PAGE_SIZE, data.total)} of {data.total}
+						</p>
+						<div className="flex gap-2">
+							<button onClick={() => setPage((current) => current - 1)} disabled={page === 1} className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50">Previous</button>
+							<span className="px-3 py-2 text-sm font-semibold text-slate-500">Page {page} of {totalPages}</span>
+							<button onClick={() => setPage((current) => current + 1)} disabled={page >= totalPages} className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50">Next</button>
+						</div>
+					</div>
+				)}
 			</Card>
 		</div>
 	);

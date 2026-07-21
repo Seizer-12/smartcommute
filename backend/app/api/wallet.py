@@ -2,9 +2,9 @@ import logging
 from uuid import uuid4
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
-from sqlalchemy import desc, select
+from sqlalchemy import desc, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -12,10 +12,15 @@ from app.api.deps import get_current_user, get_db
 from app.core.config import settings
 from app.models.transaction import Transaction, TransactionStatus, TransactionType
 from app.models.user import User
-from app.schemas.transaction import TransactionResponse, WithdrawalRequest
+from app.schemas.transaction import (
+    PaginatedTransactionsResponse,
+    TransactionResponse,
+    WithdrawalRequest,
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+MINIMUM_WITHDRAWAL_AMOUNT = 1_000.0
 
 
 class PaymentPayload(BaseModel):
@@ -164,18 +169,30 @@ async def pay_driver(
         raise HTTPException(status_code=500, detail="Transaction failed. No funds were deducted.")
 
 
-@router.get("/transactions", response_model=list[TransactionResponse])
+@router.get("/transactions", response_model=PaginatedTransactionsResponse)
 async def list_transactions(
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=10, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    total = await db.scalar(
+        select(func.count(Transaction.id)).where(Transaction.user_id == current_user.id)
+    ) or 0
     result = await db.execute(
         select(Transaction)
         .where(Transaction.user_id == current_user.id)
-        .order_by(desc(Transaction.created_at))
-        .limit(100)
+        .order_by(desc(Transaction.created_at), desc(Transaction.id))
+        .offset((page - 1) * page_size)
+        .limit(page_size)
     )
-    return result.scalars().all()
+    return {
+        "items": result.scalars().all(),
+        "page": page,
+        "page_size": page_size,
+        "total": total,
+        "total_pages": (total + page_size - 1) // page_size,
+    }
 
 
 @router.post("/withdraw")
@@ -186,6 +203,11 @@ async def withdraw(
 ):
     if current_user.role != "driver":
         raise HTTPException(status_code=403, detail="Only drivers can withdraw earnings.")
+    if payload.amount < MINIMUM_WITHDRAWAL_AMOUNT:
+        raise HTTPException(
+            status_code=400,
+            detail="The minimum withdrawal amount is ₦1,000.",
+        )
     balance = current_user.wallet_balance or 0.0
     if payload.amount > balance:
         raise HTTPException(status_code=400, detail="Insufficient driver balance.")

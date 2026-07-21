@@ -17,6 +17,12 @@ class Settings(BaseSettings):
     BACKEND_CORS_ORIGINS: str = "http://localhost:5173,http://127.0.0.1:5173"
     AUTO_CREATE_TABLES: bool = False
 
+    # The server is the source of truth for the terminus geofence.
+    PARK_LATITUDE: float = 8.4845
+    PARK_LONGITUDE: float = 4.675
+    PARK_GEOFENCE_RADIUS_METERS: float = 75.0
+    PARK_MAX_LOCATION_ACCURACY_METERS: float = 100.0
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     @property
