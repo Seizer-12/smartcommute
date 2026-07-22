@@ -3,6 +3,8 @@ import { useAuthStore } from "../store/useAuthStore";
 import { api } from "../lib/axios";
 import { User, Mail, Lock, AtSign, Briefcase, Car, Loader2, ArrowRight } from "lucide-react";
 import { useNavigate, Link } from "react-router-dom";
+import { useAlertStore } from "../store/useAlertStore";
+import { PasswordVisibilityButton } from "../components/PasswordVisibilityButton";
 
 
 const getApiErrorMessage = (error: unknown, fallback: string) => {
@@ -13,6 +15,7 @@ const getApiErrorMessage = (error: unknown, fallback: string) => {
 export default function Register() {
 	const { setToken, setUser } = useAuthStore();
 	const navigate = useNavigate();
+	const showAlert = useAlertStore((state) => state.showAlert);
 	const [isLoading, setIsLoading] = useState(false);
 
 	const [fullName, setFullName] = useState("");
@@ -20,6 +23,7 @@ export default function Register() {
 	const [username, setUsername] = useState("");
 	const [password, setPassword] = useState("");
 	const [role, setRole] = useState<"commuter" | "driver">("commuter");
+	const [isPasswordVisible, setIsPasswordVisible] = useState(false);
 
 	const handleRegister = async (e: FormEvent) => {
 		e.preventDefault();
@@ -45,7 +49,7 @@ export default function Register() {
 				navigate("/dashboard");
 			}
 		} catch (error: unknown) {
-			alert(`Registration Failed: ${getApiErrorMessage(error, "An error occurred")}`);
+			showAlert(`Registration failed: ${getApiErrorMessage(error, "An error occurred")}`, "error");
 		} finally {
 			setIsLoading(false);
 		}
@@ -160,13 +164,14 @@ export default function Register() {
 									<Lock className="h-5 w-5 text-slate-400" />
 								</div>
 								<input
-									type="password"
+									type={isPasswordVisible ? "text" : "password"}
 									required
 									value={password}
 									onChange={(e) => setPassword(e.target.value)}
-									className="block w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+									className="block w-full pl-11 pr-12 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all"
 									placeholder="••••••••"
 								/>
+								<PasswordVisibilityButton visible={isPasswordVisible} onClick={() => setIsPasswordVisible((visible) => !visible)} />
 							</div>
 						</div>
 					</div>

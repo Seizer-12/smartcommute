@@ -122,7 +122,8 @@ async def pay_driver(
         if driver.role != "driver":
             raise HTTPException(status_code=400, detail="This user is not registered as a driver.")
 
-        fare_amount = 150.0 if driver.bus_type == "macopolo" else 250.0
+        fares = {"macopolo": 150.0, "shuttle": 250.0, "cng": 250.0}
+        fare_amount = fares.get(driver.bus_type or "", 250.0)
         commuter_balance = current_user.wallet_balance or 0.0
         if commuter_balance < fare_amount:
             raise HTTPException(status_code=400, detail=f"Insufficient balance. You need ₦{fare_amount}.")

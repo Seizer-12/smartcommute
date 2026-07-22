@@ -55,8 +55,9 @@ async def send_account_email(
     )
 
     def send() -> None:
-        with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=15) as server:
-            if settings.SMTP_USE_TLS:
+        smtp_client = smtplib.SMTP_SSL if settings.SMTP_USE_SSL else smtplib.SMTP
+        with smtp_client(settings.SMTP_HOST, settings.SMTP_PORT, timeout=15) as server:
+            if settings.SMTP_USE_TLS and not settings.SMTP_USE_SSL:
                 server.starttls()
             if settings.SMTP_USERNAME:
                 server.login(settings.SMTP_USERNAME, settings.SMTP_PASSWORD)

@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1220" viewBox="0 0 1800 1220" role="img" aria-labelledby="title description">
+  <title id="title">SmartCommute project flowchart</title>
+  <desc id="description">A structured flowchart of sign-up, email verification, role-based commuter, driver and administrator journeys, and the supporting services.</desc>
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#f8fafc"/><stop offset="1" stop-color="#eff6ff"/></linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#0f172a" flood-opacity=".12"/></filter>
+    <marker id="arrow" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="8" markerHeight="8" orient="auto"><path d="M1 1 L11 6 L1 11 Z" fill="#64748b"/></marker>
+    <style>
+      .title{font:800 36px Arial,sans-serif;fill:#0f172a}.subtitle{font:500 18px Arial,sans-serif;fill:#475569}.lane{font:800 15px Arial,sans-serif;letter-spacing:1.8px;fill:#475569}.head{font:800 19px Arial,sans-serif;fill:#0f172a}.text{font:500 15px Arial,sans-serif;fill:#334155}.small{font:700 13px Arial,sans-serif;letter-spacing:.7px;fill:#64748b}.node{stroke-width:2;filter:url(#shadow)}.flow{fill:none;stroke:#64748b;stroke-width:3;marker-end:url(#arrow)}.optional{fill:none;stroke:#94a3b8;stroke-width:2.5;stroke-dasharray:8 7;marker-end:url(#arrow)}
+    </style>
+  </defs>
+
+  <rect width="1800" height="1220" fill="url(#background)"/>
+  <text x="900" y="58" text-anchor="middle" class="title">SmartCommute — Project Flow</text>
+  <text x="900" y="88" text-anchor="middle" class="subtitle">Campus transport from secure access to queueing, fare collection, and payout review</text>
+
+  <!-- access -->
+  <rect x="55" y="125" width="1690" height="216" rx="24" fill="#fff" stroke="#cbd5e1" stroke-width="2"/>
+  <text x="82" y="159" class="lane">1 · ACCESS &amp; ACCOUNT SECURITY</text>
+  <g class="node"><rect x="95" y="190" width="210" height="106" rx="16" fill="#dbeafe" stroke="#2563eb"/><text x="200" y="230" text-anchor="middle" class="head">Landing page</text><text x="200" y="258" text-anchor="middle" class="text">Choose commuter or driver</text></g>
+  <g class="node"><rect x="405" y="190" width="230" height="106" rx="16" fill="#eff6ff" stroke="#3b82f6"/><text x="520" y="230" text-anchor="middle" class="head">Register / sign in</text><text x="520" y="258" text-anchor="middle" class="text">Credentials + role selection</text></g>
+  <g class="node"><path d="M790 185 L875 243 L790 301 L705 243 Z" fill="#fef3c7" stroke="#d97706"/><text x="790" y="238" text-anchor="middle" class="head">Email</text><text x="790" y="261" text-anchor="middle" class="head">verified?</text></g>
+  <g class="node"><rect x="995" y="190" width="255" height="106" rx="16" fill="#fdf2f8" stroke="#db2777"/><text x="1122" y="230" text-anchor="middle" class="head">Verification / reset email</text><text x="1122" y="258" text-anchor="middle" class="text">One-time, expiring link</text></g>
+  <g class="node"><rect x="1380" y="190" width="280" height="106" rx="16" fill="#dcfce7" stroke="#16a34a"/><text x="1520" y="230" text-anchor="middle" class="head">Authenticated session</text><text x="1520" y="258" text-anchor="middle" class="text">JWT opens role dashboard</text></g>
+  <path class="flow" d="M305 243 H405"/><path class="flow" d="M635 243 H705"/><path class="flow" d="M875 243 H1380"/><text x="1105" y="229" class="small">YES</text>
+  <path class="flow" d="M790 301 V365 H1122 V296"/><text x="808" y="332" class="small">NO</text><path class="optional" d="M1122 190 V150 H790 V185"/>
+
+  <!-- role lanes -->
+  <rect x="55" y="390" width="1690" height="212" rx="24" fill="#f8fbff" stroke="#bfdbfe" stroke-width="2"/>
+  <text x="82" y="425" class="lane">2 · COMMUTER JOURNEY</text>
+  <g class="node"><rect x="95" y="456" width="225" height="100" rx="16" fill="#dbeafe" stroke="#2563eb"/><text x="208" y="495" text-anchor="middle" class="head">Check queue</text><text x="208" y="522" text-anchor="middle" class="text">Demand, wait and buses</text></g>
+  <g class="node"><rect x="415" y="456" width="225" height="100" rx="16" fill="#dbeafe" stroke="#2563eb"/><text x="528" y="495" text-anchor="middle" class="head">Share location</text><text x="528" y="522" text-anchor="middle" class="text">Geofence heartbeat</text></g>
+  <g class="node"><rect x="735" y="456" width="225" height="100" rx="16" fill="#dbeafe" stroke="#2563eb"/><text x="848" y="495" text-anchor="middle" class="head">Join queue</text><text x="848" y="522" text-anchor="middle" class="text">Position is updated</text></g>
+  <g class="node"><rect x="1055" y="456" width="225" height="100" rx="16" fill="#dbeafe" stroke="#2563eb"/><text x="1168" y="495" text-anchor="middle" class="head">Fund wallet</text><text x="1168" y="522" text-anchor="middle" class="text">Paystack checkout</text></g>
+  <g class="node"><rect x="1375" y="456" width="285" height="100" rx="16" fill="#dbeafe" stroke="#2563eb"/><text x="1518" y="495" text-anchor="middle" class="head">Scan / enter driver QR</text><text x="1518" y="522" text-anchor="middle" class="text">Fare moves to driver earnings</text></g>
+  <path class="flow" d="M320 506 H415"/><path class="flow" d="M640 506 H735"/><path class="flow" d="M960 506 H1055"/><path class="flow" d="M1280 506 H1375"/>
+
+  <rect x="55" y="637" width="1690" height="212" rx="24" fill="#f7fdf8" stroke="#bbf7d0" stroke-width="2"/>
+  <text x="82" y="672" class="lane">3 · DRIVER JOURNEY</text>
+  <g class="node"><rect x="95" y="703" width="250" height="100" rx="16" fill="#dcfce7" stroke="#16a34a"/><text x="220" y="742" text-anchor="middle" class="head">Become available</text><text x="220" y="769" text-anchor="middle" class="text">Share terminus location</text></g>
+  <g class="node"><rect x="455" y="703" width="250" height="100" rx="16" fill="#dcfce7" stroke="#16a34a"/><text x="580" y="742" text-anchor="middle" class="head">Receive dispatch</text><text x="580" y="769" text-anchor="middle" class="text">Queue demand + 14 seats</text></g>
+  <g class="node"><rect x="815" y="703" width="250" height="100" rx="16" fill="#dcfce7" stroke="#16a34a"/><text x="940" y="742" text-anchor="middle" class="head">Accept fare payments</text><text x="940" y="769" text-anchor="middle" class="text">QR identifies driver</text></g>
+  <g class="node"><rect x="1175" y="703" width="250" height="100" rx="16" fill="#dcfce7" stroke="#16a34a"/><text x="1300" y="742" text-anchor="middle" class="head">Track earnings</text><text x="1300" y="769" text-anchor="middle" class="text">Wallet + history</text></g>
+  <g class="node"><rect x="1535" y="703" width="125" height="100" rx="16" fill="#dcfce7" stroke="#16a34a"/><text x="1598" y="742" text-anchor="middle" class="head">Request</text><text x="1598" y="769" text-anchor="middle" class="head">payout</text></g>
+  <path class="flow" d="M345 753 H455"/><path class="flow" d="M705 753 H815"/><path class="flow" d="M1065 753 H1175"/><path class="flow" d="M1425 753 H1535"/>
+
+  <!-- support -->
+  <rect x="55" y="884" width="1690" height="265" rx="24" fill="#fff" stroke="#cbd5e1" stroke-width="2"/>
+  <text x="82" y="919" class="lane">4 · PLATFORM SERVICES &amp; ADMINISTRATION</text>
+  <g class="node"><rect x="95" y="952" width="320" height="145" rx="16" fill="#fff7ed" stroke="#ea580c"/><text x="255" y="991" text-anchor="middle" class="head">FastAPI application</text><text x="255" y="1019" text-anchor="middle" class="text">Auth · queues · wallets · admin</text><text x="255" y="1044" text-anchor="middle" class="text">JWT authorization and business rules</text><text x="255" y="1069" text-anchor="middle" class="text">Payment verification</text></g>
+  <g class="node"><rect x="545" y="952" width="285" height="145" rx="16" fill="#f0fdf4" stroke="#16a34a"/><text x="688" y="991" text-anchor="middle" class="head">PostgreSQL</text><text x="688" y="1019" text-anchor="middle" class="text">Users · tokens · queues</text><text x="688" y="1044" text-anchor="middle" class="text">Transactions · withdrawals</text></g>
+  <g class="node"><rect x="960" y="952" width="255" height="145" rx="16" fill="#fefce8" stroke="#ca8a04"/><text x="1088" y="991" text-anchor="middle" class="head">Redis</text><text x="1088" y="1019" text-anchor="middle" class="text">Live presence</text><text x="1088" y="1044" text-anchor="middle" class="text">Available drivers</text></g>
+  <g class="node"><rect x="1345" y="952" width="315" height="145" rx="16" fill="#f3e8ff" stroke="#9333ea"/><text x="1503" y="991" text-anchor="middle" class="head">Administrator</text><text x="1503" y="1019" text-anchor="middle" class="text">Manage users and vehicle types</text><text x="1503" y="1044" text-anchor="middle" class="text">Review balances and payouts</text></g>
+  <path class="flow" d="M415 1025 H545"/><path class="flow" d="M830 1025 H960"/><path class="flow" d="M1215 1025 H1345"/>
+  <path class="optional" d="M1518 556 V915 H255 V952"/><text x="1250" y="900" class="small">QUEUE, WALLET &amp; PAYMENT EVENTS</text>
+  <path class="optional" d="M1598 803 V915 H1503 V952"/><text x="1610" y="878" class="small">PAYOUT REVIEW</text>
+</svg>

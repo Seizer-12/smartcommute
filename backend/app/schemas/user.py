@@ -3,7 +3,7 @@ from typing import Literal, Optional
 from datetime import datetime
 from app.models.user import UserRole
 
-VehicleType = Literal["shuttle", "macopolo"]
+VehicleType = Literal["shuttle", "macopolo", "cng"]
 
 
 class UserBase(BaseModel):

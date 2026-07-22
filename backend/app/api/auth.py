@@ -33,16 +33,24 @@ async def _send_token_email(
     db: AsyncSession,
     user: User,
     purpose: AccountTokenPurpose,
-) -> bool:
-    await db.execute(
-        update(AccountToken)
-        .where(AccountToken.user_id == user.id, AccountToken.purpose == purpose, AccountToken.used_at.is_(None))
-        .values(used_at=datetime.now(timezone.utc))
+) -> bool | None:
+    resend_after = datetime.now(timezone.utc) - timedelta(minutes=2)
+    active_token = await db.scalar(
+        select(AccountToken.id).where(
+            AccountToken.user_id == user.id,
+            AccountToken.purpose == purpose,
+            AccountToken.used_at.is_(None),
+            AccountToken.expires_at > datetime.now(timezone.utc),
+            AccountToken.created_at > resend_after,
+        ).limit(1)
     )
+    if active_token:
+        # A recent link is still valid. Avoid flooding inboxes or invalidating a
+        # link that may still be in transit.
+        return None
+
     raw_token = secrets.token_urlsafe(32)
     expires_at = datetime.now(timezone.utc) + timedelta(hours=24 if purpose == AccountTokenPurpose.email_verification else 1)
-    db.add(AccountToken(user_id=user.id, purpose=purpose, token_hash=_token_hash(raw_token), expires_at=expires_at))
-    await db.commit()
 
     if purpose == AccountTokenPurpose.email_verification:
         subject = "Verify your SmartCommute email"
@@ -58,7 +66,15 @@ async def _send_token_email(
         intro = "We received a request to reset your SmartCommute password."
         action_label = "Reset password"
         expiry = "one hour"
-    return await send_account_email(
+    new_token = AccountToken(
+        user_id=user.id,
+        purpose=purpose,
+        token_hash=_token_hash(raw_token),
+        expires_at=expires_at,
+    )
+    db.add(new_token)
+    await db.commit()
+    sent = await send_account_email(
         user.email,
         subject,
         user.full_name,
@@ -68,6 +84,26 @@ async def _send_token_email(
         action_label,
         expiry,
     )
+    if not sent:
+        await db.delete(new_token)
+        await db.commit()
+        return False
+
+    # Only replace a previous link after the new email has been handed to SMTP.
+    # This prevents a transient mail failure (or a delayed retry) from leaving
+    # a driver with an invalid verification/reset link.
+    await db.execute(
+        update(AccountToken)
+        .where(
+            AccountToken.user_id == user.id,
+            AccountToken.purpose == purpose,
+            AccountToken.used_at.is_(None),
+            AccountToken.id != new_token.id,
+        )
+        .values(used_at=datetime.now(timezone.utc))
+    )
+    await db.commit()
+    return True
 
 
 async def _consume_token(
@@ -140,7 +176,7 @@ async def register_user(user_in: UserCreate, db: AsyncSession = Depends(get_db))
     db.add(new_user)
     await db.commit()
     await db.refresh(new_user)
-    email_verification_sent = await _send_token_email(db, new_user, AccountTokenPurpose.email_verification)
+    email_verification_sent = bool(await _send_token_email(db, new_user, AccountTokenPurpose.email_verification))
     #changes here
     access_token = create_access_token(subject=new_user.id, role=user_role_str)
     
@@ -168,7 +204,9 @@ async def login_user(user_in: UserLogin, db: AsyncSession = Depends(get_db)):
         sent = await _send_token_email(db, user, AccountTokenPurpose.email_verification)
         detail = (
             "Verify your email before signing in. A new verification link has been sent."
-            if sent
+            if sent is True
+            else "A verification link was sent recently. Please check your inbox or try again in two minutes."
+            if sent is None
             else "Verify your email before signing in. We could not send a verification link; contact support."
         )
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=detail)
@@ -231,7 +269,13 @@ async def request_email_verification(
     if current_user.email_verified:
         return {"message": "Your email is already verified."}
     sent = await _send_token_email(db, current_user, AccountTokenPurpose.email_verification)
-    return {"message": "Verification email sent." if sent else "Verification email could not be sent; contact support."}
+    return {
+        "message": "Verification email sent."
+        if sent is True
+        else "A verification email was sent recently. Please check your inbox or try again in two minutes."
+        if sent is None
+        else "Verification email could not be sent; contact support."
+    }
 
 
 @router.post("/email-verification/confirm")

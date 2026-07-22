@@ -3,6 +3,8 @@ import { useAuthStore } from "../store/useAuthStore";
 import { api } from "../lib/axios";
 import { Mail, Lock, Loader2, ArrowRight } from "lucide-react";
 import { useNavigate, Link } from "react-router-dom";
+import { useAlertStore } from "../store/useAlertStore";
+import { PasswordVisibilityButton } from "../components/PasswordVisibilityButton";
 
 
 const getApiErrorMessage = (error: unknown, fallback: string) => {
@@ -13,10 +15,12 @@ const getApiErrorMessage = (error: unknown, fallback: string) => {
 export default function Login() {
 	const { setToken, setUser } = useAuthStore();
 	const navigate = useNavigate();
+	const showAlert = useAlertStore((state) => state.showAlert);
 	const [isLoading, setIsLoading] = useState(false);
 
 	const [email, setEmail] = useState("");
 	const [password, setPassword] = useState("");
+	const [isPasswordVisible, setIsPasswordVisible] = useState(false);
 
 	const handleLogin = async (e: FormEvent) => {
 		e.preventDefault();
@@ -39,7 +43,7 @@ export default function Login() {
 				navigate("/dashboard");
 			}
 		} catch (error: unknown) {
-			alert(`Login Failed: ${getApiErrorMessage(error, "Incorrect email or password")}`);
+			showAlert(`Login failed: ${getApiErrorMessage(error, "Incorrect email or password")}`, "error");
 		} finally {
 			setIsLoading(false);
 		}
@@ -87,13 +91,14 @@ export default function Login() {
 									<Lock className="h-5 w-5 text-slate-400" />
 								</div>
 								<input
-									type="password"
+									type={isPasswordVisible ? "text" : "password"}
 									required
 									value={password}
 									onChange={(e) => setPassword(e.target.value)}
-									className="block w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-500 outline-none transition-all"
+									className="block w-full pl-11 pr-12 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-500 outline-none transition-all"
 									placeholder="••••••••"
 								/>
+								<PasswordVisibilityButton visible={isPasswordVisible} onClick={() => setIsPasswordVisible((visible) => !visible)} />
 							</div>
 						</div>
 					</div>

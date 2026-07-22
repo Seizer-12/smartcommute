@@ -20,6 +20,7 @@ import { usePaystackPayment } from "react-paystack";
 import { Html5Qrcode } from "html5-qrcode";
 import { api } from "../lib/axios";
 import { useGeofencedQueue } from "../hooks/useGeofencedQueue";
+import { useAlertStore } from "../store/useAlertStore";
 
 
 type ApiError = { response?: { data?: { detail?: string } } };
@@ -31,14 +32,20 @@ const getApiErrorMessage = (error: unknown, fallback: string) => {
 };
 
 // --- CAMERA SCANNER COMPONENT ---
-function CameraScanner({ onScanSuccess }: { onScanSuccess: (text: string) => void }) {
+function CameraScanner({ onScanSuccess, onInvalidScan }: { onScanSuccess: (text: string) => void; onInvalidScan: () => void }) {
 	const [cameraError, setCameraError] = useState<string | null>(null);
 	const scanHandledRef = useRef(false);
+	const lastInvalidScanRef = useRef(0);
 	const onScanSuccessRef = useRef(onScanSuccess);
+	const onInvalidScanRef = useRef(onInvalidScan);
 
 	useEffect(() => {
 		onScanSuccessRef.current = onScanSuccess;
 	}, [onScanSuccess]);
+
+	useEffect(() => {
+		onInvalidScanRef.current = onInvalidScan;
+	}, [onInvalidScan]);
 
 	useEffect(() => {
 		const scannerId = "physical-camera-stream";
@@ -79,7 +86,11 @@ function CameraScanner({ onScanSuccess }: { onScanSuccess: (text: string) => voi
 							decodedText.startsWith("@") && !decodedText.includes(" ");
 
 						if (!isValidDriverTag) {
-							alert("Invalid QR Code! Please scan a valid SmartCommute terminal.");
+							const now = Date.now();
+							if (now - lastInvalidScanRef.current > 2000) {
+								lastInvalidScanRef.current = now;
+								onInvalidScanRef.current();
+							}
 							return;
 						}
 
@@ -145,6 +156,7 @@ export default function CommuterDashboard() {
 	// --------------------------
 
 	const { user } = useAuthStore();
+	const showAlert = useAlertStore((state) => state.showAlert);
 	const queryClient = useQueryClient();
 	const [isVerifying, setIsVerifying] = useState(false);
 
@@ -164,9 +176,10 @@ export default function CommuterDashboard() {
 		mutationFn: () => api.post("/queue/join"),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["queueStatus"] });
+			showAlert("You have joined the queue.", "success");
 		},
 		onError: (error: unknown) => {
-			alert(getApiErrorMessage(error, "Could not join the queue."));
+			showAlert(getApiErrorMessage(error, "Could not join the queue."), "error");
 		},
 	});
 
@@ -174,9 +187,10 @@ export default function CommuterDashboard() {
 		mutationFn: () => api.post("/queue/leave"),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["queueStatus"] });
+			showAlert("You have left the queue.", "info");
 		},
 		onError: (error: unknown) => {
-			alert(getApiErrorMessage(error, "Could not leave the queue."));
+			showAlert(getApiErrorMessage(error, "Could not leave the queue."), "error");
 		},
 	});
 
@@ -202,9 +216,9 @@ export default function CommuterDashboard() {
 				useAuthStore.setState({
 					user: { ...user, wallet_balance: response.data.new_balance },
 				});
-			alert(`Success! ₦${fundAmountNaira} added.`);
+			showAlert(`₦${fundAmountNaira} added to your wallet.`, "success");
 		} catch (error: unknown) {
-			alert(`Verification Failed: ${getApiErrorMessage(error, "Error")}`);
+			showAlert(`Verification failed: ${getApiErrorMessage(error, "Error")}`, "error");
 		} finally {
 			setIsVerifying(false);
 		}
@@ -212,7 +226,7 @@ export default function CommuterDashboard() {
 
 	// Process the final payment to the driver
 	const processFarePayment = async (targetUsername: string) => {
-		if (!targetUsername) return alert("Please provide a valid driver username.");
+		if (!targetUsername) return showAlert("Please provide a valid driver username.", "warning");
 		if (isPayingRef.current) return;
 		const cleanUsername = targetUsername.replace("@", "").trim();
 
@@ -231,10 +245,10 @@ export default function CommuterDashboard() {
 				});
 			}
 
-			alert(response.data.message);
+			showAlert(response.data.message, "success");
 			setDriverUsernameInput(""); // Clears the manual input field
 		} catch (error: unknown) {
-			alert(`Payment Failed: ${getApiErrorMessage(error, "Could not process transaction")}`);
+			showAlert(`Payment failed: ${getApiErrorMessage(error, "Could not process transaction")}`, "error");
 		} finally {
 			setIsPaying(false);
 			isPayingRef.current = false;
@@ -284,7 +298,10 @@ export default function CommuterDashboard() {
 						</div>
 
 						{paymentMode === "scan" ? (
-							<CameraScanner onScanSuccess={(text) => processFarePayment(text)} />
+							<CameraScanner
+								onScanSuccess={(text) => processFarePayment(text)}
+								onInvalidScan={() => showAlert("Invalid QR code. Scan a valid SmartCommute driver code.", "warning")}
+							/>
 						) : (
 							<div className="space-y-4 mt-6">
 								<div>

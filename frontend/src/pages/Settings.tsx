@@ -1,9 +1,9 @@
-import { useEffect, useState } from "react";
-import { useLocation } from "react-router-dom";
+import { useState } from "react";
 import { useAuthStore } from "../store/useAuthStore";
 import { useAlertStore } from "../store/useAlertStore";
 import { Card } from "../components/Card";
 import { Button } from "../components/Button";
+import { PasswordVisibilityButton } from "../components/PasswordVisibilityButton";
 import { User, Mail, AtSign, LockKeyhole } from "lucide-react";
 import { api } from "../lib/axios";
 
@@ -13,40 +13,28 @@ const getApiErrorMessage = (error: unknown, fallback: string) => {
 };
 
 export default function Settings() {
-	const location = useLocation();
 	const { user, setUser } = useAuthStore();
 	const showAlert = useAlertStore((state) => state.showAlert);
 	const [fullName, setFullName] = useState(user?.full_name || "");
 	const busType = user?.bus_type || "";
-	const [message, setMessage] = useState("");
 	const [isSaving, setIsSaving] = useState(false);
 	const [currentPassword, setCurrentPassword] = useState("");
 	const [newPassword, setNewPassword] = useState("");
 	const [confirmPassword, setConfirmPassword] = useState("");
 	const [isChangingPassword, setIsChangingPassword] = useState(false);
 	const [isSendingVerification, setIsSendingVerification] = useState(false);
-
-	useEffect(() => {
-		const notice = location.state?.notice;
-		if (typeof notice === "string") {
-			setMessage(notice);
-			window.history.replaceState({}, "", location.pathname);
-		}
-	}, [location.pathname, location.state]);
+	const [visiblePasswordField, setVisiblePasswordField] = useState<string | null>(null);
 
 	const saveProfile = async () => {
 		setIsSaving(true);
-		setMessage("");
 		try {
 			const response = await api.patch("/account/me", {
 				full_name: fullName,
 			});
 			setUser(response.data);
-			setMessage("Profile updated.");
 			showAlert("Profile updated.", "success");
 		} catch (error: unknown) {
 			const alert = getApiErrorMessage(error, "Could not update profile.");
-			setMessage(alert);
 			showAlert(alert, "error");
 		} finally {
 			setIsSaving(false);
@@ -55,23 +43,21 @@ export default function Settings() {
 
 	const changePassword = async () => {
 		if (newPassword !== confirmPassword) {
-			setMessage("New passwords do not match.");
 			showAlert("New passwords do not match.", "error");
 			return;
 		}
 		setIsChangingPassword(true);
-		setMessage("");
 		try {
 			const response = await api.post("/auth/password/change", { current_password: currentPassword, new_password: newPassword });
-			setCurrentPassword(""); setNewPassword(""); setConfirmPassword(""); setMessage(response.data.message); showAlert(response.data.message, "success");
-		} catch (error: unknown) { const alert = getApiErrorMessage(error, "Could not change password."); setMessage(alert); showAlert(alert, "error"); }
+			setCurrentPassword(""); setNewPassword(""); setConfirmPassword(""); showAlert(response.data.message, "success");
+		} catch (error: unknown) { const alert = getApiErrorMessage(error, "Could not change password."); showAlert(alert, "error"); }
 		finally { setIsChangingPassword(false); }
 	};
 
 	const sendVerification = async () => {
-		setIsSendingVerification(true); setMessage("");
-		try { const response = await api.post("/auth/email-verification/request"); setMessage(response.data.message); showAlert(response.data.message, response.data.message.includes("could not") ? "error" : "success"); }
-		catch (error: unknown) { const alert = getApiErrorMessage(error, "Could not send verification email."); setMessage(alert); showAlert(alert, "error"); }
+		setIsSendingVerification(true);
+		try { const response = await api.post("/auth/email-verification/request"); const message = response.data.message; showAlert(message, message.includes("could not") ? "error" : message.includes("recently") ? "info" : "success"); }
+		catch (error: unknown) { const alert = getApiErrorMessage(error, "Could not send verification email."); showAlert(alert, "error"); }
 		finally { setIsSendingVerification(false); }
 	};
 
@@ -118,13 +104,13 @@ export default function Settings() {
 						<div>
 							<label className="text-xs font-bold text-slate-700 uppercase ml-1">Vehicle Type</label>
 							<select value={busType} disabled aria-describedby="vehicle-type-help" className="block w-full px-4 py-3 mt-1 bg-slate-100 border border-slate-200 rounded-xl font-medium text-slate-500 cursor-not-allowed">
-								<option value="shuttle">Korape Shuttle</option>
-								<option value="macopolo">Macopolo Bus</option>
+								<option value="shuttle">Korope Shuttle (₦250 Fare)</option>
+								<option value="macopolo">Macopolo Bus (₦150 Fare)</option>
+								<option value="cng">CNG Bus (₦250 Fare)</option>
 							</select>
 							<p id="vehicle-type-help" className="mt-1 text-xs text-slate-500">Vehicle type is set during registration and cannot be changed.</p>
 						</div>
 					)}
-					{message && <p className="text-sm font-semibold text-slate-600">{message}</p>}
 					<Button className="px-6" onClick={saveProfile} isLoading={isSaving}>Save Changes</Button>
 				</div>
 			</Card>
@@ -140,7 +126,7 @@ export default function Settings() {
 			<Card className="p-6 border-slate-200">
 				<h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider mb-4">Change Password</h3>
 				<div className="space-y-3 max-w-md">
-					{[["Current password", currentPassword, setCurrentPassword], ["New password", newPassword, setNewPassword], ["Confirm new password", confirmPassword, setConfirmPassword]].map(([label, value, setter]) => <div key={String(label)}><label className="text-xs font-bold text-slate-700 uppercase ml-1">{String(label)}</label><div className="relative mt-1"><LockKeyhole className="absolute left-4 top-3.5 w-4 h-4 text-slate-400"/><input type="password" value={String(value)} onChange={(e) => (setter as (value: string) => void)(e.target.value)} className="block w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none font-medium text-slate-900" /></div></div>)}
+					{[["Current password", currentPassword, setCurrentPassword], ["New password", newPassword, setNewPassword], ["Confirm new password", confirmPassword, setConfirmPassword]].map(([label, value, setter]) => { const field = String(label); const visible = visiblePasswordField === field; return <div key={field}><label className="text-xs font-bold text-slate-700 uppercase ml-1">{field}</label><div className="relative mt-1"><LockKeyhole className="absolute left-4 top-3.5 w-4 h-4 text-slate-400"/><input type={visible ? "text" : "password"} value={String(value)} onChange={(e) => (setter as (value: string) => void)(e.target.value)} className="block w-full pl-11 pr-12 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none font-medium text-slate-900" /><PasswordVisibilityButton visible={visible} onClick={() => setVisiblePasswordField(visible ? null : field)} /></div></div>})}
 					<Button className="px-6" onClick={changePassword} isLoading={isChangingPassword}>Change Password</Button>
 				</div>
 			</Card>

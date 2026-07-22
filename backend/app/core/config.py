@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     SMTP_USERNAME: str = ""
     SMTP_PASSWORD: str = ""
     SMTP_USE_TLS: bool = True
+    SMTP_USE_SSL: bool = False
     # This is the mailbox address; outbound messages are always displayed as
     # "SmartCommute <EMAIL_FROM>".
     EMAIL_FROM: str = "no-reply@smartcommute.local"
